@@ -129,6 +129,15 @@ class PostProcessor :
 	    if inTree == None: inTree = inFile.Get("Friends")
 	    nEntries = min(inTree.GetEntries() - self.firstEntry, self.maxEntries)
 	    totEntriesRead+=nEntries
+	    # attach the friends
+	    inAddFiles = []
+	    inAddTrees = []
+	    for ffname in ffnames:
+		inAddFiles.append(ROOT.TFile.Open(ffname))
+		inAddTree = inAddFiles[-1].Get("Events")
+		if inAddTree == None: inAddTree = inAddFiles[-1].Get("Friends")
+		inAddTrees.append(inAddTree)
+		inTree.AddFriend(inAddTree)
 	    # pre-skimming
 	    elist,jsonFilter = preSkim(inTree, self.json, self.cut, maxEntries = self.maxEntries, firstEntry = self.firstEntry)
 	    if self.justcount:
@@ -138,14 +147,6 @@ class PostProcessor :
 		continue
 	    else:
 		print 'Pre-select %d entries out of %s (%.2f%%)'%(elist.GetN() if elist else nEntries,nEntries,(elist.GetN() if elist else nEntries)/(0.01*nEntries) if nEntries else 0)
-		inAddFiles = []
-		inAddTrees = []
-	    for ffname in ffnames:
-		inAddFiles.append(ROOT.TFile.Open(ffname))
-		inAddTree = inAddFiles[-1].Get("Events")
-		if inAddTree == None: inAddTree = inAddFiles[-1].Get("Friends")
-		inAddTrees.append(inAddTree)
-		inTree.AddFriend(inAddTree)
 
 	    if fullClone:
 		# no need of a reader (no event loop), but set up the elist if available
