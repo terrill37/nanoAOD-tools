@@ -14,7 +14,7 @@ from PhysicsTools.NanoAODTools.postprocessing.framework.jobreport import JobRepo
 
 class PostProcessor :
     def __init__(self,outputDir,inputFiles,cut=None,branchsel=None,modules=[],compression="LZMA:9",friend=False,postfix=None,
-		 jsonInput=None,noOut=False,justcount=False,provenance=False,haddFileName=None,fwkJobReport=False,histFileName=None,histDirName=None, outputbranchsel=None,maxEntries=None,firstEntry=0,
+		 jsonInput=None,noOut=False,justcount=False,provenance=False,haddFileName=None,fwkJobReport=False,histFileName=None,histDirName=None, outputbranchsel=None,maxEntries=None,firstEntry=0, saveSelectionElist=False,
 		 prefetch=False,longTermCache=False):
 	self.outputDir=outputDir
 	self.inputFiles=inputFiles
@@ -40,6 +40,7 @@ class PostProcessor :
         self.histDirName=histDirName
         self.maxEntries = maxEntries if maxEntries else 9223372036854775807L # 2^63 - 1, largest int64
         self.firstEntry = firstEntry
+        self.saveSelectionElist = saveSelectionElist
         self.prefetch = prefetch # prefetch files to TMPDIR using xrdcp
         self.longTermCache = longTermCache # keep cached files across runs (it's then up to you to clean up the temp)
     def prefetchFile(self, fname, verbose=True):
@@ -175,6 +176,8 @@ class PostProcessor :
                         firstEntry=self.firstEntry,
                         jsonFilter=jsonFilter,
                         provenance=self.provenance)
+                if elist and self.saveSelectionElist:
+                    outFile.WriteTObject(elist, self.saveSelectionElist)
             else : 
                 outFile = None
                 outTree = None
