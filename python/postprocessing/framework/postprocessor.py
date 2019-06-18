@@ -197,6 +197,7 @@ class PostProcessor :
 	    # now write the output
             if not self.noOut: 
                 outTree.write()
+                inFile.Close() # important to do this before
                 outFile.Close()
                 print "Done %s" % outFileName
 	    if self.jobReport:
