@@ -31,14 +31,15 @@ class btagSFProducer(Module):
     """Calculate btagging scale factors
         algo has to be either 'csvv2' or 'cmva'
     """
-    def __init__(self, era, algo = 'csvv2', sfFileName = None, verbose = 0):
+    def __init__(self, era, algo = 'csvv2', sfFileName = None, verbose = 0, collName='Jet',storeOutput=True):
 
         self.era = era
 
         self.algo = algo.lower()
 
         self.verbose = verbose
-
+        self.collName = collName
+        self.storeOutput = storeOutput
         # CV: Return value of BTagCalibrationReader::eval_auto_bounds() is zero
         #     in case jet abs(eta) > 2.4 !!
         self.max_abs_eta = 2.4
@@ -109,7 +110,7 @@ class btagSFProducer(Module):
                     'supported_wp' : [ "L", "M", "T", "shape_corr"]
                 },
                 '2017' : {
-                    'inputFileName' : "DeepFlavour_94XSF_V2_B_F.csv",
+                    'inputFileName' : "DeepFlavour_94XSF_WP_V3_B_F.csv",
                     'measurement_types' : {
                         0 : "comb",  # b
                         1 : "comb",  # c
@@ -162,6 +163,8 @@ class btagSFProducer(Module):
             algoLabel = "deep-CSV (b)"
         elif self.algo == "cmva":
             algoLabel = "cMVA"
+        elif self.algo == "deepjet":
+            algoLabel = "deepjet" 
         else:
             raise ValueError("ERROR: Algorithm '%s' not supported for era = '%s'! Please choose among { %s }." % (self.algo, self.era, supported_algos))
         print("Loading btagSF weights for %s algorithm from file '%s'" % (algoLabel, os.path.join(self.inputFilePath, self.inputFileName)))
@@ -193,16 +196,16 @@ class btagSFProducer(Module):
         self.branchNames_central_and_systs = {}
         for central_or_syst in self.central_and_systs:
             if central_or_syst == "central":
-                self.branchNames_central_and_systs[central_or_syst] = "Jet_btagSF"
+                self.branchNames_central_and_systs[central_or_syst] = "%s_btagSF"%self.collName
             else:
-                self.branchNames_central_and_systs[central_or_syst] = "Jet_btagSF_%s" % central_or_syst
+                self.branchNames_central_and_systs[central_or_syst] = "%s_btagSF_%s" %(self.collName, central_or_syst)
 
         self.branchNames_central_and_systs_shape_corr = {}
         for central_or_syst in self.central_and_systs_shape_corr:
             if central_or_syst == "central":
-                self.branchNames_central_and_systs_shape_corr[central_or_syst] = "Jet_btagSF_shape"
+                self.branchNames_central_and_systs_shape_corr[central_or_syst] = "%s_btagSF_shape"%self.collName
             else:
-                self.branchNames_central_and_systs_shape_corr[central_or_syst] = "Jet_btagSF_shape_%s" % central_or_syst
+                self.branchNames_central_and_systs_shape_corr[central_or_syst] = "%s_btagSF_shape_%s" % (self.collName,central_or_syst)
 
     def beginJob(self):
         # initialize BTagCalibrationReader
@@ -232,10 +235,11 @@ class btagSFProducer(Module):
 
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree
-        for central_or_syst in self.central_and_systs:
-            self.out.branch(self.branchNames_central_and_systs[central_or_syst], "F", lenVar="nJet")
-        for central_or_syst in self.central_and_systs_shape_corr:
-            self.out.branch(self.branchNames_central_and_systs_shape_corr[central_or_syst], "F", lenVar="nJet")
+        if self.storeOutput:
+            for central_or_syst in self.central_and_systs:
+                self.out.branch(self.branchNames_central_and_systs[central_or_syst], "F", lenVar="n%s"%self.collName)
+            for central_or_syst in self.central_and_systs_shape_corr:
+                self.out.branch(self.branchNames_central_and_systs_shape_corr[central_or_syst], "F", lenVar="n%s"%self.collName)
 
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         pass
@@ -306,7 +310,7 @@ class btagSFProducer(Module):
 
     def analyze(self, event):
         """process event, return True (go to next module) or False (fail, go to next event)"""
-        jets = Collection(event, "Jet")
+        jets = Collection(event, self.collName)
 
         discr = None
         if self.algo == "csvv2":
@@ -315,6 +319,8 @@ class btagSFProducer(Module):
             discr = "btagDeepB"
         elif self.algo == "cmva":
             discr = "btagCMVA"
+        elif self.algo == "deepjet":
+            discr = "btagDeepFlavB"
         else:
             raise ValueError("ERROR: Invalid algorithm '%s'! Please choose either 'csvv2' or 'cmva'." % self.algo)
 
@@ -323,13 +329,19 @@ class btagSFProducer(Module):
         for central_or_syst in self.central_and_systs:
             central_or_syst = central_or_syst.lower()
             scale_factors = list(self.getSFs(preloaded_jets, central_or_syst, reader, 'auto', False))
-            self.out.fillBranch(self.branchNames_central_and_systs[central_or_syst], scale_factors)
+            if self.storeOutput: 
+                self.out.fillBranch(self.branchNames_central_and_systs[central_or_syst], scale_factors)
+            else: 
+                setattr(event, self.branchNames_central_and_systs[central_or_syst], scale_factors)
         # shape corrections
         reader = self.getReader('shape_corr', True)
         for central_or_syst in self.central_and_systs_shape_corr:
             central_or_syst = central_or_syst.lower()
             scale_factors = list(self.getSFs(preloaded_jets, central_or_syst, reader, 'auto', True))
-            self.out.fillBranch(self.branchNames_central_and_systs_shape_corr[central_or_syst], scale_factors)
+            if self.storeOutput:
+                self.out.fillBranch(self.branchNames_central_and_systs_shape_corr[central_or_syst], scale_factors)
+            else: 
+                setattr(event, self.branchNames_central_and_systs_shape_corr[central_or_syst], scale_factors)
 
         return True
 
@@ -337,3 +349,6 @@ class btagSFProducer(Module):
 
 btagSF2016 = lambda : btagSFProducer("2016")
 btagSF2017 = lambda : btagSFProducer("2017")
+
+
+
