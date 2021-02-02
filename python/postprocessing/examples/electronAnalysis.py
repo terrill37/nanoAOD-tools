@@ -6,7 +6,18 @@ from importlib import import_module
 import os
 import sys
 import ROOT
+from optparse import OptionParser
+
 ROOT.PyConfig.IgnoreCommandLineOptions = True
+
+parser = OptionParser()
+parser.add_option("-i", "--input", dest="input_file", 
+                  help= "input file name")
+
+parser.add_option("-o", "--output", dest="output",
+                  help= "output file name")
+
+(o, a) = parser.parse_args()
 
 class ElectronAnalysis(Module):
     def __init__(self):
@@ -24,6 +35,7 @@ class ElectronAnalysis(Module):
         h = ROOT.TH1F(hist_name, hist_title, nbins, xlo, xhi)
         setattr(self, hist_name, h)
         self.addObject( getattr(self, hist_name) )
+    
     # quick add a generic object
     def bookObject(self, obj_name, obj):
         setattr(self, obj_name, obj)
@@ -53,9 +65,25 @@ class ElectronAnalysis(Module):
         # truth electrons matching reco
         self.bookTH1("h_gen_ele_pt_match",";Gen electron p_{T} [GeV];entries",20,0,10)
 
+        #reco muons
+        self.bookTH1("h_mu_pt", ";Reco muon p_{T} [GeV];entries",20,0,10)
+        self.bookObject("h_mu_pt_eta", ROOT.TH2F("h_mu_pt_eta",
+                                                  ";Reco muon p_{T} [GeV];Reco muon #eta",
+                                                  20,0,10, 10,-2.7,2.7))
+        
+        # reco muons matching truth
+        self.bookTH1("h_mu_pt_match",";Reco muon p_{T} [GeV];entries",20,0,10)
+
+        # truth muons
+        self.bookTH1("h_gen_mu_pt",";Gen muon p_{T} [GeV];entries",20,0,10)
+
+        # truth muons matching reco
+        self.bookTH1("h_gen_mu_pt_match",";Gen muon p_{T} [GeV];entries",20,0,10)
+
     def endJob(self):
         self.MakeRatio("gen_ele_efficiency", self.h_gen_ele_pt_match, self.h_gen_ele_pt )
-        
+        self.MakeRatio("gen_mu_efficiency", self.h_gen_mu_pt_match, self.h_gen_mu_pt )
+
         Module.endJob(self)
         
     def analyze(self, event):
@@ -72,7 +100,8 @@ class ElectronAnalysis(Module):
         gen_muons = filter( lambda lep: abs(lep.pdgId)==13, gen_leptons)
 
         # record truth_to_reco mapping
-        truth_to_reco = dict()
+        truth_to_reco_ele = dict()
+        truth_to_reco_mu  = dict()
         
         # reco electron loop
         for ele_idx, ele in enumerate(electrons):
@@ -80,23 +109,39 @@ class ElectronAnalysis(Module):
             self.h_ele_pt_eta.Fill( ele.pt, ele.eta )
             isTruthMatch = (ele.genPartIdx >= 0 and ele.genPartFlav==1)
             if isTruthMatch:
-                truth_to_reco[ele.genPartIdx] = ele_idx
+                truth_to_reco_ele[ele.genPartIdx] = ele_idx
                 self.h_ele_pt_match.Fill( ele.pt )
             
         # gen electron loop
         for gen_ele in gen_electrons:
             self.h_gen_ele_pt.Fill( gen_ele.pt )
-            isRecoMatch = (gen_ele.idx in truth_to_reco)
+            isRecoMatch = (gen_ele.idx in truth_to_reco_ele)
             if isRecoMatch:
                 self.h_gen_ele_pt_match.Fill( gen_ele.pt )
             
+        # reco muon loop
+        for mu_idx, mu in enumerate(muons):
+            self.h_mu_pt.Fill( mu.pt )
+            self.h_mu_pt_eta.Fill( mu.pt, mu.eta )
+            isTruthMatch = (mu.genPartIdx >= 0 and mu.genPartFlav==1)
+            if isTruthMatch:
+                truth_to_reco_mu[mu.genPartIdx] = mu_idx
+                self.h_mu_pt_match.Fill( mu.pt )
+
+        # gen electron loop
+        for gen_mu in gen_muons:
+            self.h_gen_mu_pt.Fill( gen_mu.pt )
+            isRecoMatch = (gen_mu.idx in truth_to_reco_mu)
+            if isRecoMatch:
+                self.h_gen_mu_pt_match.Fill( gen_mu.pt )
 
         # return True to keep the event if we're saving another tree
         return True
 
 
 preselection = "GenMET_pt>50"
-files = ["file:test_files/Higgsino_N2N1_Chunk0.root"]
+files = ["file:"+o.input_file]
 p = PostProcessor(".", files, cut=preselection, branchsel=None, modules=[
-                  ElectronAnalysis()], noOut=True, histFileName="histOut.root", histDirName="plots")
+                  ElectronAnalysis()], noOut=True, histFileName=o.output, histDirName="plots1")
+
 p.run()
