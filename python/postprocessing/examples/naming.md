@@ -36,6 +36,7 @@ The standard electrons are matched slightly differently to those of the newer lo
 
 ### low pt leptons
 helper matching function used
+    <br/>
     ```sh
     f = lambda p: (abs(p.pdgId) in [11, 13] #lepton
                    and p.statusFlags & (1<<13) # last copy
@@ -44,6 +45,7 @@ helper matching function used
     ```
 
 look for nearest gen electron to reco electron in a given event
+    <br/>
     ```sh
     def truthMatch(self, reco, gen_lep_col):
         best_dR=9e9
