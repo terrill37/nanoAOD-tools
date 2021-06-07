@@ -111,16 +111,25 @@ class ElectronAnalysis(Module):
         DeepCSV_cut     = 0.1241   #unitless
         
         if self.pfRelIso03_allxPT:
-            if abs(lepton.pdgId)==11 and lepton.pt<5:
+            if self.lepton=="softElectron" and lepton.ID>1:
+                if not lepton.trkRelIso * lepton.pt< pfRelIsoxPT_cut:
+                    return False
+
+            elif (self.lepton== "Electron" or self.lepton=="Electron") and abs(lepton.pdgId)==11 and lepton.pt<5:
                 if not lepton.miniPFRelIso_all * lepton.pt< self.miniPFxPT_cut:
                     return False
+            
             else:
                 if not lepton.pfRelIso03_all * lepton.pt< pfRelIsoxPT_cut:
                     return False
 
         if self.pfRelIso03_all:
             #print("pfRelIso03_all")
-            if abs(lepton.pdgId)==11 and lepton.pt<5:
+            if self.lepton=="softElectron" and lepton.ID>1:
+                if not lepton.trkRelIso < pfRelIso_cut:
+                    return False
+            
+            elif (self.lepton== "Electron" or self.lepton=="Electron") and abs(lepton.pdgId)==11 and lepton.pt<5:
                 if not lepton.miniPFRelIso_all < self.miniPF_cut:
                     return False
             else: 
@@ -133,8 +142,12 @@ class ElectronAnalysis(Module):
                 return VLooseFOEleID(lepton, 2018)
 
         if self.tightEleID:
-            if not tightEleID(lepton, 2018):
-                return tightEleID(lepton, 2018)
+            if self.lepton=="softElectron" and lepton.ID>1:
+                if not softEleID(lepton, 2018):
+                    return softEleID(lepton, 2018)
+            else:
+                if not tightEleID(lepton, 2018):
+                    return tightEleID(lepton, 2018)
 
         if self.convVeto:
             if not lepton.convVeto:
@@ -154,7 +167,7 @@ class ElectronAnalysis(Module):
         
         if self.lostHits:
             #print(lepton.lostHits)
-            if not lepton.lostHits==0:
+            if lepton.lostHits != 0:
              #   print("lostHits failed")
         #        print("lostHits: ", lepton.lostHits)
                 return False
@@ -231,6 +244,19 @@ class ElectronAnalysis(Module):
         
         Module.endJob(self)
         
+    def truthMatch(self, reco, gen_lep_col):
+        best_dR=9e9
+        isMatch=False
+        for gen_lep in gen_lep_col:
+            dr = gen_lep.p4().DeltaR(reco.p4())
+            #print dr
+            if dr<0.1 and dr<best_dR:
+                best_dR = dr
+                reco.genPartIdx = gen_lep.idx
+                isMatch = True
+                #print dr
+        return isMatch
+
     def analyze(self, event):
         # all reco leptons
         if o.collect=="LepRecl":
@@ -241,21 +267,24 @@ class ElectronAnalysis(Module):
         
         gen_particles        = Collection(event, "GenPart")
         gen_leptons          = filter(self.genLeptonSelector, gen_particles)
-        #gen_electrons        = filter(lambda lep: abs(lep.pdgId)==11, gen_leptons)
-
-        if (self.lepton=='electron') or (self.lepton=='Electron'):
-            lepton_use     = filter( lambda lep: abs(lep.pdgId)==11, leptons)
-            gen_lepton_use = filter( lambda lep: abs(lep.pdgId)==11, gen_leptons)
-        elif (self.lepton=='muon') or (self.lepton=='Muon'):
-            lepton_use     = filter( lambda lep: abs(lep.pdgId)==13, leptons)
-            gen_lepton_use = filter( lambda lep: abs(lep.pdgId)==13, gen_leptons)
-
-        electrons = filter( lambda lep: abs(lep.pdgId)==11, leptons)
-
+        
         # truth / generator-level leptons
         for ip, p in enumerate(gen_particles): 
-            #print(p.pdgID)
             p.idx = ip
+
+        #print(self.lepton)
+        if (self.lepton=='electron') or (self.lepton=='Electron'):
+            lepton_use     = filter( lambda lep: abs(lep.pdgId)==11, leptons )
+            gen_lepton_use = filter( lambda lep: abs(lep.pdgId)==11, gen_leptons )
+        
+        elif (self.lepton=='softElectron'):
+            #print self.lepton
+            lepton_use     = filter( lambda lep: lep.ID>1 and abs(lep.pdgId)==11, leptons )
+            gen_lepton_use = filter( lambda lep: abs(lep.pdgId)==11, gen_leptons )
+        
+        elif (self.lepton=='muon') or (self.lepton=='Muon'):
+            lepton_use     = filter( lambda lep: abs(lep.pdgId)==13, leptons )
+            gen_lepton_use = filter( lambda lep: abs(lep.pdgId)==13, gen_leptons )
 
         # record truth_to_reco mapping
         truth_to_reco_ele = dict()
@@ -268,10 +297,17 @@ class ElectronAnalysis(Module):
 
         # reco electron loop
         for ele_idx, ele in enumerate(lepton_use):
+            #print 'loop'
+            match=False
+            #print self.lepton
+            if self.lepton=='softElectron':
+                match=self.truthMatch(ele, gen_lepton_use)
+                #print(ele.genPartIdx, match)
+
             self.h_ele_pt.Fill( ele.pt )
             self.h_ele_pt_eta.Fill( ele.pt, ele.eta ) 
                                                      #prompt electron      electron from prompt tau
-            isTruthMatch = (ele.genPartIdx >= 0 and (ele.genPartFlav==1 or ele.genPartFlav==15))
+            isTruthMatch = (ele.genPartIdx >= 0 and (ele.genPartFlav==1 or ele.genPartFlav==15)) #FIXME
             isRecl = self.Recleaner(ele)
             barrel_eta = (abs(ele.eta)<=1.47)
             endcap_eta = (2.5>abs(ele.eta)>1.47)
@@ -282,7 +318,9 @@ class ElectronAnalysis(Module):
             else:
                 isRecl_full=True #always true unless LepRecl specified
             
-            if isTruthMatch and isRecl and isRecl_full:
+            if (isTruthMatch or match) and isRecl and isRecl_full:
+                #if o.collect=='LepGood':
+                #    print('pass truth match')
                 truth_to_reco_ele[ele.genPartIdx] = ele_idx
                 self.h_ele_pt_match.Fill( ele.pt )
 
@@ -294,7 +332,7 @@ class ElectronAnalysis(Module):
                     self.h_ele_pt_match_out.Fill( ele.pt )
             
                
-            if not isTruthMatch and isRecl and isRecl_full:
+            if not (isTruthMatch or match) and isRecl and isRecl_full:
             #is not matched to gen part and passes recleaning steps
                 truth_to_reco_unmatchedEle[ele.genPartIdx] = ele_idx
                 self.h_ele_pt_unmatch.Fill( ele.pt )
@@ -365,7 +403,7 @@ class ElectronAnalysis(Module):
 
 preselection = "GenMET_pt>50"
 files = ["file:"+o.input_file+
-         ",file:/eos/user/w/wterrill/softlepton_root/ch_outdir_dec18_ULtest_qcd/reclean/Higgsino_N2N1_Chunk0_Friend.root"]
+         ",file:/eos/user/w/wterrill/softlepton_root/ch_outdir_dec18_ULtest_qcd_vtest/reclean/Higgsino_N2N1_testing_Chunk0_Friend.root"]
 
 #friend=["file:/eos/user/w/wterrill/softlepton_root/ch_outdir_dec18_ULtest_qcd/reclean/Higgsino_N2N1_Chunk0_Friend.root"]
 p = PostProcessor(".", files, cut=preselection, branchsel=None, modules=[

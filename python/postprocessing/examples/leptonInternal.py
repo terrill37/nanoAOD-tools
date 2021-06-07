@@ -51,7 +51,11 @@ class LeptonAnalysis_steps(Module):
         #print("in Recleaner")
 
         if self.pfRelIso03_allxPT:
-            if abs(lepton.pdgId)==11 and lepton.pt<5:
+            if self.lepton=="softElectron" and lepton.ID > 1:
+                if not lepton.trkRelIso*lepton.pt < pfRelIsoxPT_cut:
+                    return False
+
+            elif abs(lepton.pdgId)==11 and lepton.pt<5:
                 if not lepton.miniPFRelIso_all * lepton.pt < self.miniPFxPT_cut:
                     return False
             else:
@@ -61,7 +65,11 @@ class LeptonAnalysis_steps(Module):
         #print('between step 1 and 2')
         if self.pfRelIso03_all:
             #print("pfRelIso03_all")
-            if abs(lepton.pdgId)==11 and lepton.pt<5:
+            if self.lepton=="softElectron" and lepton.ID > 1:
+                if not lepton.trkRelIso < pfRelIso_cut:
+                    return False
+            
+            elif abs(lepton.pdgId)==11 and lepton.pt<5:
                 if not lepton.miniPFRelIso_all < self.miniPF_cut:
                     return False
             else:
@@ -76,8 +84,12 @@ class LeptonAnalysis_steps(Module):
 
         #print('between step 3 and 4')
         if self.tightEleID:
-            if not tightEleID(lepton, 2018):
-                return False
+            if self.lepton=="softElectron" and lepton.ID > 1:
+                if not softEleID(lepton, 2018):
+                    return False
+            else:
+                if not tightEleID(lepton, 2018):
+                    return False
 
         #print('between step 4 and 5')
         if self.convVeto:
@@ -107,7 +119,8 @@ class LeptonAnalysis_steps(Module):
         #print('between step 9 and 10')
         #print("lostHits: ", lepton.lostHits)
         if self.lostHits:
-            if not lepton.lostHits==0:
+            if lepton.lostHits != 0:
+                print lepton.lostHits
                 return False
 
         #print('end of Recleaner')
@@ -117,7 +130,7 @@ class LeptonAnalysis_steps(Module):
         
         if (self.lepton=="muon") or (self.lepton=="Muon"):
             hist_name2=hist_name.replace("lep", "mu")
-        elif(self.lepton=="electron") or (self.lepton=="Electron"):
+        elif(self.lepton=="electron") or (self.lepton=="Electron") or (self.lepton=="softElectron"):
             hist_name2=hist_name.replace("lep","ele")
         
         h = ROOT.TH1F(hist_name2, hist_title, nbins, xlo, xhi)
@@ -161,7 +174,7 @@ class LeptonAnalysis_steps(Module):
         self.bookTH1("h_lep_sip3d"               ,";Reco lepton sip3d ;entries",20,0,3)
         self.bookTH1("h_lep_pfRelIso03_all"      ,";Reco lepton pfRelIso03_all ;entries",30,0,.05)
         self.bookTH1("h_lep_pfRelIso03_allxPT"   ,";Reco lepton pfRelIso03_allxPT ;entries",20,0,5)
-        self.bookTH1("h_lep_miniPFRelIso_all"    ,";Reco lepton miniPFRelIso_all ;entries",30,0,.05)
+        self.bookTH1("h_lep_miniPFRelIso_all"    ,";Reco lepton miniPFRelIso_all ;entries",30,0,5)
         self.bookTH1("h_lep_miniPFRelIso_allxPT" ,";Reco lepton miniPFRelIso_allxPT ;entries",20,0,5)
         self.bookTH1("h_lep_bTagDeepCSV"         ,";Reco lepton bTagDeepCSV ;entries",40,0,1)
         self.bookTH1("h_lep_lostHits"            ,";Reco lepton lostHits ;entries", 10, 0, 5)
@@ -173,6 +186,7 @@ class LeptonAnalysis_steps(Module):
         self.bookTH1("h_lep_mvaFall17_WP80"      ,";Reco lepton mvaFall17V2noIso_WP80; entries", 2, 0, 2)
         self.bookTH1("h_lep_mva_small"           ,";Reco lepton mva score; entries", 30, -1, 1)
         self.bookTH1("h_lep_trkRelIso"           ,";Reco lepton trkRelIso; entries", 30, 0, 5)
+        self.bookTH1("h_lep_trkRelIsoxPT"        ,";Reco lepton trkRelIsoxPT; entries", 30, 0, 5)
 
         ## matched
         self.bookTH1("h_lep_match_ip3d"                ,";Reco lepton ip3d  ;entries",20,-0.002,0.2)
@@ -191,6 +205,7 @@ class LeptonAnalysis_steps(Module):
         self.bookTH1("h_lep_match_mvaFall17_WP80"      ,";Reco lepton mvaFall17V2noIso_WP80", 2, 0, 2)
         self.bookTH1("h_lep_match_mva_small"           ,";Reco lepton mva score", 30, -1, 1)
         self.bookTH1("h_lep_match_trkRelIso"           ,";Reco lepton trkRelIso; entries", 30, 0, 5)
+        self.bookTH1("h_lep_match_trkRelIsoxPT"        ,";Reco lepton trkRelIsoxPT; entries", 30, 0, 5)
 
         ## unmatched
         self.bookTH1("h_lep_unmatch_ip3d"                ,";Reco lepton ip3d  ;entries",20,-0.002,0.2)
@@ -209,6 +224,7 @@ class LeptonAnalysis_steps(Module):
         self.bookTH1("h_lep_unmatch_mvaFall17_WP80"      ,";Reco lepton mvaFall17V2noIso_WP80", 2, 0, 2)
         self.bookTH1("h_lep_unmatch_mva_small"           ,";Reco lepton mva score", 30, -1, 1)
         self.bookTH1("h_lep_unmatch_trkRelIso"           ,";Reco lepton trkRelIso; entries", 30, 0, 5)
+        self.bookTH1("h_lep_unmatch_trkRelIsoxPT"        ,";Reco lepton trkRelIsoxPT; entries", 30, 0, 5)
 
         ### split lower
         #### matched
@@ -228,6 +244,7 @@ class LeptonAnalysis_steps(Module):
         self.bookTH1("h_lep_lower_match_mvaFall17_WP80"      ,";Reco lepton mvaFall17V2noIso_WP80", 2, 0, 2)
         self.bookTH1("h_lep_lower_match_mva_small"           ,";Reco lepton mva score", 30, -1, 1)
         self.bookTH1("h_lep_lower_match_trkRelIso"           ,";Reco lepton trkRelIso; entries", 30, 0, 5)
+        self.bookTH1("h_lep_lower_match_trkRelIsoxPT"        ,";Reco lepton trkRelIsoxPT; entries", 30, 0, 5)
 
         #### unmatched (2<pt<5)
         self.bookTH1("h_lep_lower_unmatch_ip3d"              ,";Reco lepton ip3d  ;entries",20,-0.002,0.2)
@@ -245,7 +262,8 @@ class LeptonAnalysis_steps(Module):
         self.bookTH1("h_lep_lower_unmatch_pt"                ,";Reco lepton p_{T}; entries", 30, 0, 10)
         self.bookTH1("h_lep_lower_unmatch_mvaFall17_WP80"    ,";Reco lepton mvaFall17V2noIso_WP80", 2, 0, 2)
         self.bookTH1("h_lep_lower_unmatch_mva_small"         ,";Reco lepton mva score", 30, -1, 1)
-        self.bookTH1("h_lep_lower_unmatch_trkRelIso"           ,";Reco lepton trkRelIso; entries", 30, 0, 5)
+        self.bookTH1("h_lep_lower_unmatch_trkRelIso"         ,";Reco lepton trkRelIso; entries", 30, 0, 5)
+        self.bookTH1("h_lep_lower_unmatch_trkRelIsoxPT"      ,";Reco lepton trkRelIsoxPT; entries", 30, 0, 5)
 
         ### split upper (5<pt<10)
         ## matched
@@ -301,6 +319,7 @@ class LeptonAnalysis_steps(Module):
         self.bookTH1("h_lep_barrel_mvaFall17_WP80"    ,";Reco lepton mvaFall17V2noIso_WP80", 2, 0, 2)
         self.bookTH1("h_lep_barrel_mva_small"         ,";Reco lepton mva score", 30, -1, 1)
         self.bookTH1("h_lep_barrel_trkRelIso"         ,";Reco lepton trkRelIso; entries", 30, 0, 5)
+        self.bookTH1("h_lep_barrel_trkRelIsoxPT"        ,";Reco lepton trkRelIsoxPT; entries", 30, 0, 5)
 
         ## matched
         self.bookTH1("h_lep_match_barrel_ip3d"              ,";Reco lepton ip3d  ;entries",20,-0.002,0.2)
@@ -319,6 +338,7 @@ class LeptonAnalysis_steps(Module):
         self.bookTH1("h_lep_match_barrel_mvaFall17_WP80"    ,";Reco lepton mvaFall17V2noIso_WP80", 2, 0, 2)
         self.bookTH1("h_lep_match_barrel_mva_small"         ,";Reco lepton mva score", 30, -1, 1)
         self.bookTH1("h_lep_match_barrel_trkRelIso"         ,";Reco lepton trkRelIso; entries", 30, 0, 5)
+        self.bookTH1("h_lep_match_barrel_trkRelIsoxPT"      ,";Reco lepton trkRelIsoxPT; entries", 30, 0, 5)
 
         ## unmatched
         self.bookTH1("h_lep_unmatch_barrel_ip3d"              ,";Reco lepton ip3d  ;entries",20,-0.002,0.2)
@@ -337,6 +357,7 @@ class LeptonAnalysis_steps(Module):
         self.bookTH1("h_lep_unmatch_barrel_mvaFall17_WP80"    ,";Reco lepton mvaFall17V2noIso_WP80", 2, 0, 2)
         self.bookTH1("h_lep_unmatch_barrel_mva_small"         ,";Reco lepton mva score", 30, -1, 1)
         self.bookTH1("h_lep_unmatch_barrel_trkRelIso"         ,";Reco lepton trkRelIso; entries", 30, 0, 5)
+        self.bookTH1("h_lep_unmatch_barrel_trkRelIsoxPT"      ,";Reco lepton trkRelIsoxPT; entries", 30, 0, 5)
 
         ### split lower
         #### matched
@@ -356,6 +377,7 @@ class LeptonAnalysis_steps(Module):
         self.bookTH1("h_lep_lower_match_barrel_mvaFall17_WP80"    ,";Reco lepton mvaFall17V2noIso_WP80", 2, 0, 2)
         self.bookTH1("h_lep_lower_match_barrel_mva_small"         ,";Reco lepton mva score", 30, -1, 1)
         self.bookTH1("h_lep_lower_match_barrel_trkRelIso"         ,";Reco lepton trkRelIso; entries", 30, 0, 5)
+        self.bookTH1("h_lep_lower_match_barrel_trkRelIsoxPT"      ,";Reco lepton trkRelIsoxPT; entries", 30, 0, 5)
 
         #### unmatched (2<pt<5)
         self.bookTH1("h_lep_lower_unmatch_barrel_ip3d"              ,";Reco lepton ip3d  ;entries",20,-0.002,0.2)
@@ -374,6 +396,7 @@ class LeptonAnalysis_steps(Module):
         self.bookTH1("h_lep_lower_unmatch_barrel_mvaFall17_WP80"    ,";Reco lepton mvaFall17V2noIso_WP80", 2, 0, 2)
         self.bookTH1("h_lep_lower_unmatch_barrel_mva_small"         ,";Reco lepton mva score", 30, -1, 1)
         self.bookTH1("h_lep_lower_unmatch_barrel_trkRelIso"         ,";Reco lepton trkRelIso; entries", 30, 0, 5)
+        self.bookTH1("h_lep_lower_unmatch_barrel_trkRelIsoxPT"      ,";Reco lepton trkRelIsoxPT; entries", 30, 0, 5)
 
         ### split upper (5<pt<10)
         ## matched
@@ -393,6 +416,7 @@ class LeptonAnalysis_steps(Module):
         self.bookTH1("h_lep_upper_match_barrel_mvaFall17_WP80"    ,";Reco lepton mvaFall17V2noIso_WP80", 2, 0, 2)
         self.bookTH1("h_lep_upper_match_barrel_mva_small"         ,";Reco lepton mva score", 30, -1, 1)
         self.bookTH1("h_lep_upper_match_barrel_trkRelIso"         ,";Reco lepton trkRelIso; entries", 30, 0, 5)
+        self.bookTH1("h_lep_upper_match_barrel_trkRelIsoxPT"      ,";Reco lepton trkRelIsoxPT; entries", 30, 0, 5)
 
         ## unmatched
         self.bookTH1("h_lep_upper_unmatch_barrel_ip3d"              ,";Reco lepton ip3d  ;entries",20,-0.002,0.2)
@@ -411,6 +435,7 @@ class LeptonAnalysis_steps(Module):
         self.bookTH1("h_lep_upper_unmatch_barrel_mvaFall17_WP80"    ,";Reco lepton mvaFall17V2noIso_WP80", 2, 0, 2)
         self.bookTH1("h_lep_upper_unmatch_barrel_mva_small"         ,";Reco lepton mva score", 30, -1, 1)
         self.bookTH1("h_lep_upper_unmatch_barrel_trkRelIso"         ,";Reco lepton trkRelIso; entries", 30, 0, 5)
+        self.bookTH1("h_lep_upper_unmatch_barrel_trkRelIsoxPT"      ,";Reco lepton trkRelIsoxPT; entries", 30, 0, 5)
 
         #endcap
         self.bookTH1("h_lep_endcap_ip3d"              ,";Reco lepton ip3d  ;entries",20,-0.002,0.2)
@@ -763,6 +788,17 @@ class LeptonAnalysis_steps(Module):
       #  print('endJob')
 
         Module.endJob(self)
+    
+    def truthMatch(self, reco, gen_lep_col):
+        best_dR=9e9
+        isMatch=False
+        for gen_lep in gen_lep_col:
+            dr = gen_lep.p4().DeltaR(reco.p4())
+            if dr<0.1 and dr<best_dR:
+                best_dR = dr
+                reco.genPartIdx = gen_lep.idx
+                isMatch = True
+        return isMatch
 
     def analyze(self, event):
         if not self.collect == "LepRecl":
@@ -773,9 +809,13 @@ class LeptonAnalysis_steps(Module):
         gen_particles = Collection(event, "GenPart")
         gen_leptons   = filter(self.genLeptonSelector, gen_particles)
         #gen_electrons = filter(lambda lep: abs(lep.pdgId)==11, gen_leptons)
-
+        
         if (self.lepton == 'electron') or (self.lepton == 'Electron'):
             lepton_use     = filter(lambda lep: abs(lep.pdgId)==11, leptons)
+            gen_lepton_use = filter(lambda lep: abs(lep.pdgId)==11, gen_leptons)
+        
+        elif (self.lepton == 'softElectron'):
+            lepton_use     = filter(lambda lep: abs(lep.pdgId)==11 and lep.ID>1, leptons)
             gen_lepton_use = filter(lambda lep: abs(lep.pdgId)==11, gen_leptons)
 
         elif (self.lepton == 'muon') or (self.lepton == 'Muon'):
@@ -797,8 +837,12 @@ class LeptonAnalysis_steps(Module):
 
         # reco electron loop
         for lep_idx, ele in enumerate(lepton_use):
+            match=False
+            if self.lepton=='softElectron':
+                match=self.truthMatch(ele, gen_lepton_use)
+                #print(ele.genPartIdx, match)
+            
             recl = True
-
             barrel  = (abs(ele.eta)<=1.47)
             endcap  = (2.5>abs(ele.eta)>1.47)
             outside = (2.5<=abs(ele.eta))
@@ -807,15 +851,13 @@ class LeptonAnalysis_steps(Module):
             if self.collect == "LepRecl":
              #   print("is LepRecl")
                 recl = ele.isLepTight_Recl
-                                                    #prompt electron       electron from prompt tau
+                                                    #prompt ele            ele from prompt tau
             isTruthMatch = (ele.genPartIdx >= 0 and (ele.genPartFlav==1 or ele.genPartFlav==15))
-
-            #print(self.Recleaner(ele), recl)
 
             if self.Recleaner(ele) and recl:
                 self.h_lep_ip3d.Fill(ele.ip3d)
                 self.h_lep_sip3d.Fill(ele.sip3d)
-                self.h_lep_pfRelIso03_all.Fill(ele.pfRelIso03_all)
+                self.h_lep_pfRelIso03_all.Fill(ele.pfRelIso03_all) 
                 self.h_lep_pfRelIso03_allxPT.Fill(ele.pfRelIso03_all * ele.pt)
                 self.h_lep_miniPFRelIso_all.Fill(ele.miniPFRelIso_all)
                 self.h_lep_miniPFRelIso_allxPT.Fill(ele.miniPFRelIso_all * ele.pt)
@@ -829,12 +871,15 @@ class LeptonAnalysis_steps(Module):
                 if ele.pt<=10:
                     self.h_lep_mvaFall17_WP80.Fill(getattr(ele, 'mvaFall17V2Iso_WP80'))
 
-                if ele.pt<=5:
-                    mva = calculateRawMVA(getattr(ele, 'mvaFall17V2noIsoFromMini'))
-                    mva_small = getattr(ele, 'mvaFall17V2noIsoFromMini')
-                else:
-                    mva = calculateRawMVA(getattr(ele, 'mvaFall17V2noIsoFromMini'))
-                    mva_small = getattr(ele, 'mvaFall17V2noIsoFromMini')
+                if ele.pt <= 5:
+                    #mva = calculateRawMVA(getattr(ele, 'mvaFall17V2noIsoFromMini'))
+                    #mva_small = getattr(ele, 'mvaFall17V2noIsoFromMini')
+                    mva = -999
+                    mva_small = -999
+
+                elif ele.pt > 5:
+                    mva = calculateRawMVA(getattr(ele, 'mvaFall17V2noIso'))
+                    mva_small = getattr(ele, 'mvaFall17V2noIso')
 
                 self.h_lep_mva.Fill(mva)
                 self.h_lep_mva_small.Fill(mva_small)
@@ -855,7 +900,7 @@ class LeptonAnalysis_steps(Module):
                 self.h_lep_pt_convVeto.Fill( ele.pt, ele.convVeto )
                 self.h_lep_pt_lostHits.Fill( ele.pt, ele.lostHits )
 
-                if isTruthMatch:
+                if isTruthMatch or match:
                     #more match hists
                     self.h_lep_match_ip3d.Fill(ele.ip3d)
                     self.h_lep_match_sip3d.Fill(ele.sip3d)
@@ -931,7 +976,7 @@ class LeptonAnalysis_steps(Module):
                     #self.h_lep_match_pt_mva.Fill( ele.pt, mva )
                     #self.h_lep_match_eta_mva.Fill( ele.eta, mva )
 
-                else: #not isTruthMatch:
+                elif not (isTruthMatch or match): #not isTruthMatch:
                     #more unmatch plots
                     self.h_lep_unmatch_ip3d.Fill(ele.ip3d)
                     self.h_lep_unmatch_sip3d.Fill(ele.sip3d)
@@ -1016,7 +1061,7 @@ class LeptonAnalysis_steps(Module):
                     #self.h_lep_pt_mva.Fill( ele.pt, mva )
                     #self.h_lep_eta_mva.Fill( ele.eta, mva )
 
-                    if isTruthMatch:
+                    if isTruthMatch or match:
                         #more match hists
                         self.h_lep_match_barrel_ip3d.Fill(ele.ip3d)
                         self.h_lep_match_barrel_sip3d.Fill(ele.sip3d)
@@ -1074,7 +1119,7 @@ class LeptonAnalysis_steps(Module):
                         #self.h_lep_match_pt_mva.Fill( ele.pt, mva )
                         #self.h_lep_match_eta_mva.Fill( ele.eta, mva )
 
-                    else: #not isTruthMatch:
+                    elif not (isTruthMatch or match): #not isTruthMatch:
                         #more unmatch plots
                         self.h_lep_unmatch_barrel_ip3d.Fill(ele.ip3d)
                         self.h_lep_unmatch_barrel_sip3d.Fill(ele.sip3d)
@@ -1150,7 +1195,7 @@ class LeptonAnalysis_steps(Module):
                     #self.h_lep_pt_mva.Fill( ele.pt, mva )
                     #self.h_lep_eta_mva.Fill( ele.eta, mva )
 
-                    if isTruthMatch:
+                    if isTruthMatch or match:
                         #more match hists
                         self.h_lep_match_endcap_ip3d.Fill(ele.ip3d)
                         self.h_lep_match_endcap_sip3d.Fill(ele.sip3d)
@@ -1209,7 +1254,7 @@ class LeptonAnalysis_steps(Module):
                         #self.h_lep_match_pt_mva.Fill( ele.pt, mva )
                         #self.h_lep_match_eta_mva.Fill( ele.eta, mva )
 
-                    else: #not isTruthMatch:
+                    elif not (isTruthMatch or match): #not isTruthMatch:
                         #more unmatch plots
                         self.h_lep_unmatch_endcap_ip3d.Fill(ele.ip3d)
                         self.h_lep_unmatch_endcap_sip3d.Fill(ele.sip3d)
@@ -1286,7 +1331,7 @@ class LeptonAnalysis_steps(Module):
                     #self.h_lep_pt_mva.Fill( ele.pt, mva )
                     #self.h_lep_eta_mva.Fill( ele.eta, mva )
 
-                    if isTruthMatch:
+                    if isTruthMatch or match:
                         #more match hists
                         self.h_lep_match_outside_ip3d.Fill(ele.ip3d)
                         self.h_lep_match_outside_sip3d.Fill(ele.sip3d)
@@ -1343,7 +1388,7 @@ class LeptonAnalysis_steps(Module):
                         #self.h_lep_match_pt_mva.Fill( ele.pt, mva )
                         #self.h_lep_match_eta_mva.Fill( ele.eta, mva )
 
-                    else: #not isTruthMatch:
+                    elif not (isTruthMatch or match): #not isTruthMatch:
                         #more unmatch plots
                         self.h_lep_unmatch_outside_ip3d.Fill(ele.ip3d)
                         self.h_lep_unmatch_outside_sip3d.Fill(ele.sip3d)
